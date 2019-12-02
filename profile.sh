@@ -12,6 +12,6 @@ type="advanced-hotspots"
     -collect $type \
     -knob analyze-openmp=true \
     -knob sampling-interval=10 \
-    --resume-after 5 -d 20 \
+    --resume-after 2 -d 20 \
     -- $root/run.sh $1
 

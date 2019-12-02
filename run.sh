@@ -1,5 +1,9 @@
 ### run script for the operator benchmark
 
+#source activate pytorch-mingfei
+export LD_PRELOAD=/home/mingfeim/packages/jemalloc-5.2.0/lib/libjemalloc.so
+
+
 if [ $# != 1 ]; then
   echo "usage: ./run.sh [xxx.py]"
   exit
