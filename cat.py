@@ -49,10 +49,13 @@ def benchmark():
 
 benchmark()
 
-def validate():
+def validate(use_bfloat=False):
     t1 = torch.randn(2, 5)
     t2 = torch.randn(2, 5)
     t3 = torch.randn(3, 5)
+
+    if use_bfloat:
+        t1, t2, t3 = t1.bfloat16(), t2.bfloat16(), t3.bfloat16()
 
     o1 = torch.cat([t1, t2], 0)
     o2 = torch.cat([t1, t3], 0)
@@ -64,3 +67,4 @@ def validate():
     print('cat 1&3: ', o2)
 
 #validate()
+#validate(True)
