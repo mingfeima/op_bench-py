@@ -6,10 +6,6 @@ torch.manual_seed(0)
 warmups = 100 # iterations
 total_times = 10 # seconds
 
-# input.index_select(dim=0, index)
-#   input size: [N, C]
-#   index size: [K]
-
 # cat(inputs, dim)
 #   number of inputs: N
 #   input size: [H, W]
