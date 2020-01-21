@@ -2,6 +2,7 @@ import argparse
 import torch
 from torch import nn
 from time import time
+import copy
 
 N = 128
 T = 128
@@ -53,29 +54,38 @@ def run_single_test(n, t, c, elementwise_affine=True):
 #run_single_test(N, T, C)
 
 def validate():
-    x1 = torch.randn(8, 128, 768).requires_grad_()
-    dy1 = torch.randn(8, 128, 768)
-    m1 = nn.LayerNorm(768)
+    x1 = torch.randn(8, 10, 128)
+    x1.requires_grad_()
+    dy1 = torch.randn(8, 10, 128)
+    m1 = nn.LayerNorm(128)
     m1.train()
 
     x2, dy2 = x1.cuda(), dy1.cuda()
-    m2 = m1.cuda()
+    m2 = copy.deepcopy(m1).cuda()
 
     y1 = m1(x1)
     y1.backward(dy1)
     y2 = m2(x2)
     y2.backward(dy2)
 
-    grad_beta = grad_output.view(-1, C).sum(dim=0)
-    diff_beta = grad_beta - m.bias.grad.data
-
     diff_y = y1 - y2.cpu()
     diff_dgamma = m1.weight.grad - m2.weight.grad.cpu()
     diff_dbeta = m1.bias.grad - m2.bias.grad.cpu()
 
-    print('output: ', diff_y.abs().max())
-    print('dgamma: ', diff_dgamma.abs().max())
-    print('dbeta: ', diff_dbeta.abs().max())
+    def cmp(t1, t2, msg, debug=False):
+        t2 = t2.cpu() if t2.is_cuda else t2
+        print(msg, torch.allclose(t1, t2, rtol=1e-05, atol=1e-05))
+        if debug:
+            print(t1.view(-1)[0:20])
+            print(t2.view(-1)[0:20])
+
+    debug = True
+    cmp(y1, y2, 'otuput:', debug)
+    cmp(m1.weight.grad, m2.weight.grad, 'dgamma:', debug)
+    cmp(m1.bias.grad, m2.bias.grad, 'dbeta:', debug)
+    print('output max diff: ', diff_y.abs().max())
+    print('dgamma max diff: ', diff_dgamma.abs().max())
+    print('dbeta max diff: ', diff_dbeta.abs().max())
 
 validate()
 
