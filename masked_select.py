@@ -28,19 +28,20 @@ def run_single_test(N, C):
           N, C, output.size()[0], tt))
 
 def benchmark():
-    #run_single_test(128, 1000)
-    #run_single_test(128, 10000)
-    run_single_test(128, 100000)
+    run_single_test(128, 1000)
+    run_single_test(256, 1000)
+    run_single_test(512, 1000)
+    run_single_test(1024, 1000)
 
-#benchmark()
+benchmark()
 
 def validate():
     input = torch.randn(3, 4)
     mask = input.ge(0.0)
-    output = torch.masked_select(input, mask)
     print('bool mask')
     print('input', input)
     print('mask', mask)
+    output = torch.masked_select(input, mask)
     print('output', output)
     mask1 = mask.byte()
     print('byte mask')
@@ -67,5 +68,5 @@ def broadcast2():
     output = torch.masked_select(input, mask)
     print('output', output)
 
-broadcast1()
-broadcast2()
+#broadcast1()
+#broadcast2()
