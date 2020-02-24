@@ -12,14 +12,20 @@ iters = 10000 # iterations
 S = 2 # scale_factor
 
 tests = {
-    'upsample_nearest1d' : [[64, 9, 512], 'nearest', int(iters * 2)],
-    'upsample_nearest2d' : [[8, 9, 64, 64], 'nearest', iters],
-    'upsample_nearest3d' : [[8, 9, 32, 32, 32], 'nearest', int(iters / 10)]
+    #'upsample_nearest1d' : [[64, 9, 512], 'nearest', 'ncw' int(iters * 2)],
+    #'upsample_nearest2d' : [[8, 9, 64, 64], 'nearest', 'nchw', iters],
+    #'upsample_nearest3d' : [[8, 9, 32, 32, 32], 'nearest', 'ncdhw', int(iters / 10)],
+    'upsample_nearest2d' : [[8, 64, 64, 9], 'nearest', 'nhwc', iters]
 }
 
 # nn.Upsample(input, scale_factor, mode)
-def run_single_test(name, input_size, scale, mode, niters, train):
-    input = torch.randn(input_size).requires_grad_()
+def run_single_test(name, input_size, scale, mode, memory_format, niters, train):
+    input = torch.randn(input_size)
+    if memory_format == 'nhwc':
+        #input = input.contiguous(memory_format=torch.channels_last)
+        input = input.permute(0, 3, 1, 2)
+    if train:
+        input.requires_grad_()
     
     model = nn.Upsample(scale_factor=scale, mode=mode)
 
@@ -39,7 +45,9 @@ def run_single_test(name, input_size, scale, mode, niters, train):
         fwd_t = fwd_t + (t2 - t1)
         bwd_t = bwd_t + (t3 - t2)
 
-    print("{}: input size: ".format(name), input.size())
+    print("{}: memory format: {}, input size: ".format(name, memory_format), input.size())
+    print("input.is_contiguous(memory_format=torch.channels_last): ", input.is_contiguous(memory_format=torch.channels_last))
+    print("input.is_contiguous(): ", input.is_contiguous())
     if train:
         print("forward + backward time per iteration: {:.3f} ms".format((fwd_t + bwd_t) / niters * 1000))
     else:
@@ -53,8 +61,8 @@ def benchmark():
     args = parser.parse_args()
 
     for name, input in tests.items():
-        input_size, mode, niters = input[0], input[1], input[2]
-        run_single_test(name, input_size, S, mode, niters, args.train)
+        input_size, mode, mformat, niters = input[0], input[1], input[2], input[3]
+        run_single_test(name, input_size, S, mode, mformat, niters, args.train)
 
 benchmark()
 
