@@ -2,6 +2,7 @@ import torch
 from torch import nn
 from time import time
 import argparse
+import copy
 
 niters = 2000
 
@@ -61,6 +62,39 @@ def benchmark():
 benchmark()
 
 
+def validate():
+    l = 2, d = 2, n = 3, t = 3, i = 5, h = 4
+    x1 = torch.randn(t, n, i)
+    x1.requires_grad_()
+    dy1 = torch.randn(t, n, d*h)
 
+    m1 = nn.LSTM(i, h, l, bidirectional=True)
+    hx1, cx1 = torch.randn(l*d, n, h), torch.randn(l*d, n, h)
+    hx1.requires_grad_(), cx1.requires_grad_()
+
+    x2, dy2, hx2, cx1 = x1.cuda(), dy1.cuda(), hx1.cuda(), cx1.cuda()
+    m2 = copy.deepcopy(m1).cuda()
+
+    y1, hn1 = m1(x1, (hx1, cx1))
+    hy1, cy1 = hn1
+    y1.backward(dy1)
+    y2, hn2 = m2(x2, (hx2, cx2))
+    hy2, cy2 = hn2
+    y2.backward(dy2)
+
+    def cmp(t1, t2, msg, debug=False):
+        t2 = t2.cpu() if t2.is_cuda else t2
+        print(msg, torch.allclose(t1, t2, rtol=1e-05, atol=1e-05))
+        if debug:
+            print(t1.view(-1)[0:20])
+            print(t2.view(-1)[0:20])
+
+    debug = False
+    cmp(y1, y2, 'output', debug)
+    cmp(hy1, hy2, 'hy', debug)
+    cmp(cy1, cy2, 'cy', debug)
+
+
+validate()
 
 
