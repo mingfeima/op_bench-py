@@ -63,24 +63,33 @@ benchmark()
 
 
 def validate():
-    l = 2, d = 2, n = 3, t = 3, i = 5, h = 4
+    l = 2
+    d = 2
+    n = 3
+    t = 3
+    i = 5
+    h = 4
+
     x1 = torch.randn(t, n, i)
-    x1.requires_grad_()
-    dy1 = torch.randn(t, n, d*h)
+    x1.requires_grad_(True)
 
     m1 = nn.LSTM(i, h, l, bidirectional=True)
+    m1.train()
     hx1, cx1 = torch.randn(l*d, n, h), torch.randn(l*d, n, h)
-    hx1.requires_grad_(), cx1.requires_grad_()
+    hx1.requires_grad_(True)
+    cx1.requires_grad_(True)
 
-    x2, dy2, hx2, cx1 = x1.cuda(), dy1.cuda(), hx1.cuda(), cx1.cuda()
+    x2, hx2, cx2 = x1.clone().cuda(), hx1.clone().cuda(), cx1.clone().cuda()
     m2 = copy.deepcopy(m1).cuda()
+    x2.requires_grad_(True)
 
     y1, hn1 = m1(x1, (hx1, cx1))
     hy1, cy1 = hn1
-    y1.backward(dy1)
+    y1.mean().backward(retain_graph=True)
+
     y2, hn2 = m2(x2, (hx2, cx2))
     hy2, cy2 = hn2
-    y2.backward(dy2)
+    y2.mean().backward(retain_graph=True)
 
     def cmp(t1, t2, msg, debug=False):
         t2 = t2.cpu() if t2.is_cuda else t2
@@ -89,10 +98,13 @@ def validate():
             print(t1.view(-1)[0:20])
             print(t2.view(-1)[0:20])
 
-    debug = False
-    cmp(y1, y2, 'output', debug)
-    cmp(hy1, hy2, 'hy', debug)
-    cmp(cy1, cy2, 'cy', debug)
+    def cmp1(v1, v2, msg, debug):
+        cmp(v1.grad.data, v2.grad.data, msg, debug)
+
+    debug = True
+    cmp(y1, y2, 'output: ', debug)
+    cmp(hy1, hy2, 'hy: ', debug)
+    cmp(cy1, cy2, 'cy: ', debug)
 
 
 validate()
