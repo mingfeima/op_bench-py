@@ -36,10 +36,14 @@ def run_single_test(mode, L, D, N, T, I, H, train=False):
         dy = torch.randn(y.size())
 
     t1 = time()
-    for i in range(niters):
-        y = model(x, hx)
-        if train:
+    if train:
+        for i in range(niters):
+            y = model(x, hx)
             y.backward(dy)
+    else:
+        with torch.no_grad():
+            for i in range(niters):
+                y = model(x, hx)
     t2 = time()
 
     ttime = (t2 - t1) / niters * 1000
@@ -107,6 +111,6 @@ def validate():
     cmp(cy1, cy2, 'cy: ', debug)
 
 
-validate()
+#validate()
 
 

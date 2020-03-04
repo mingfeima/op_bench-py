@@ -47,13 +47,16 @@ export $KMP_SETTING
 export KMP_BLOCKTIME=$KMP_BLOCKTIME
 
 echo -e "\n### using $KMP_SETTING"
-echo -e "### using KMP_BLOCKTIME=$KMP_BLOCKTIME"
-echo -e "### using $PREFIX\n"
+echo -e "### using KMP_BLOCKTIME=$KMP_BLOCKTIME\n"
 
 ### single socket test
 echo -e "\n### using OMP_NUM_THREADS=$CORES"
+PREFIX="numactl --physcpubind=0-$LAST_CORE --membind=0"
+echo -e "### using $PREFIX\n"
 OMP_NUM_THREADS=$CORES $PREFIX python -u $INPUT_FILE
 
 ### single thread test
 echo -e "\n### using OMP_NUM_THREADS=1"
+PREFIX="numactl --physcpubind=0 --membind=0"
+echo -e "### using $PREFIX\n"
 OMP_NUM_THREADS=1 $PREFIX python -u $INPUT_FILE
