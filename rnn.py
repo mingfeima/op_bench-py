@@ -91,7 +91,7 @@ def test1():
     cx1.requires_grad_(True)
 
     hy1, cy1, ws1 = torch._fused_lstm_cell(input1, hidden1, cx1)
-    (hy1 + cy1).sum().backward(retain_graph=True)
+    (hy1 + cy1).sum().backward()
 
     input2.requires_grad_(True)
     hidden2.requires_grad_(True)
@@ -106,7 +106,7 @@ def test1():
     cy2 = (fg * cx2).add_(ig * cg);
     hy2 = og * cy2.tanh();
     ws2 = torch.cat([ig, fg, cg, og], dim=1)
-    (hy2 + cy2).sum().backward(retain_graph=True)
+    (hy2 + cy2).sum().backward()
 
     def cmp(t1, t2, msg):
         print(msg, torch.allclose(t1, t2, rtol=1e-05, atol=1e-05),
@@ -120,23 +120,38 @@ def test1():
     cmp(hidden1.grad, hidden2.grad, "hidden_gates.grad: ")
     cmp(cx1.grad, cx2.grad, "cx.grad: ")
 
-# test fused_lstm_cell fwd and bwd
+# test fused_gru_cell fwd and bwd
 def test2():
     n = 4
     h = 10
     g = 3 * h
-    input = torch.randn(n, g)
-    hidden = torch.randn(n, g)
-    hx = torch.randn(n, h)
+    input1 = torch.randn(n, g)
+    hidden1 = torch.randn(n, g)
+    hx1 = torch.randn(n, h)
+    input2 = input1.clone()
+    hidden2 = hidden1.clone()
+    hx2 = hx1.clone()
 
-    hy1, ws1 = torch._fused_gru_cell(input, hidden, hx)
+    input1.requires_grad_(True)
+    hidden1.requires_grad_(True)
+    hx1.requires_grad_(True)
 
-    chunked_igates = input.chunk(3, 1)
-    chunked_hgates = hidden.chunk(3, 1)
-    reset_gate = chunked_hgates[0].add_(chunked_igates[0]).sigmoid_();
-    input_gate = chunked_hgates[1].add_(chunked_igates[1]).sigmoid_();
-    new_gate = chunked_igates[2].add(chunked_hgates[2].mul_(reset_gate)).tanh_();
-    hy2 = (hx - new_gate).mul_(input_gate).add_(new_gate)
+    hy1, ws1 = torch._fused_gru_cell(input1, hidden1, hx1)
+    hy1.sum().backward()
+
+    input2.requires_grad_(True)
+    hidden2.requires_grad_(True)
+    hx2.requires_grad_(True)
+
+    chunked_igates = input2.chunk(3, 1)
+    chunked_hgates = hidden2.chunk(3, 1)
+    hn = chunked_hgates[2].clone()
+    rg = chunked_hgates[0].add_(chunked_igates[0]).sigmoid_();
+    ig = chunked_hgates[1].add_(chunked_igates[1]).sigmoid_();
+    ng = chunked_igates[2].add(chunked_hgates[2].mul_(rg)).tanh_();
+    hy2 = (hx2 - ng).mul_(ig).add_(ng)
+    ws2 = torch.cat([rg, ig, ng, hx2, hn], dim=1)
+    hy2.sum().backward()
 
     def cmp(t1, t2, msg):
         print(msg, torch.allclose(t1, t2, rtol=1e-05, atol=1e-05),
@@ -144,6 +159,11 @@ def test2():
 
     print("\n### fused_gru_kernel ###")
     cmp(hy1, hy2, "hy: ")
+    cmp(ws1, ws2, "workspace: ")
+    cmp(input1.grad, input2.grad, "input_gates.grad: ")
+    cmp(hidden1.grad, hidden2.grad, "hidden_gates.grad: ")
+    cmp(hx1.grad, hx2.grad, "hx.grad: ")
+
 
 test1()
 test2()
