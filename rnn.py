@@ -4,13 +4,19 @@ from time import time
 import argparse
 import copy
 
-niters = 2000
+niters_inference = 2000
+niters_training = 100
 
-tests = [
+tests_inference = [
     # mode, L, D, N, T, I, H
     ['lstm', 1, 1, 1, 15, 250, 200]]
 
-def run_single_test(mode, L, D, N, T, I, H, train=False):
+tests_training = [
+    # mode, L, D, N, T, I, H
+    ['lstm', 1, 1, 128, 50, 1024, 1024]
+    ]
+
+def run_single_test(niters, mode, L, D, N, T, I, H, train=False):
     if mode == 'lstm':
         rnn = nn.LSTM
         hx_, cx_ = torch.randn(L*D, N, H), torch.randn(L*D, N, H)
@@ -30,20 +36,20 @@ def run_single_test(mode, L, D, N, T, I, H, train=False):
         model.eval()
 
     for i in range(int(niters / 10)):
-        y = model(x, hx)
+        y, _ = model(x, hx)
 
     if train:
-        dy = torch.randn(y.size())
+        dy = torch.randn(T, N, D * H)
 
     t1 = time()
     if train:
         for i in range(niters):
-            y = model(x, hx)
+            y, _ = model(x, hx)
             y.backward(dy)
     else:
         with torch.no_grad():
             for i in range(niters):
-                y = model(x, hx)
+                y, _ = model(x, hx)
     t2 = time()
 
     ttime = (t2 - t1) / niters * 1000
@@ -58,59 +64,86 @@ def benchmark():
                         help='benchmark training')
     args = parser.parse_args()
 
+    tests = tests_training if args.train else tests_inference
+    niters = niters_training if args.train else niters_inference
     for test in tests:
         mode, l, d, n, t, i, h = test[0], test[1], test[2], test[3], test[4], test[5], test[6]
-        run_single_test(mode, l, d, n, t, i, h, args.train)
+        run_single_test(niters, mode, l, d, n, t, i, h, args.train)
 
 
 benchmark()
 
 
-def validate():
-    l = 2
-    d = 2
-    n = 3
-    t = 3
-    i = 5
-    h = 4
+# test fused_lstm_cell fwd and bwd
+def test1():
+    n = 4
+    h = 10
+    g = 4 * h
+    input1 = torch.randn(n, g)
+    hidden1 = torch.randn(n, g)
+    cx1 = torch.randn(n, h)
+    input2 = input1.clone()
+    hidden2 = hidden1.clone()
+    cx2 = cx1.clone()
 
-    x1 = torch.randn(t, n, i)
-    x1.requires_grad_(True)
-
-    m1 = nn.LSTM(i, h, l, bidirectional=True)
-    m1.train()
-    hx1, cx1 = torch.randn(l*d, n, h), torch.randn(l*d, n, h)
-    hx1.requires_grad_(True)
+    input1.requires_grad_(True)
+    hidden1.requires_grad_(True)
     cx1.requires_grad_(True)
 
-    x2, hx2, cx2 = x1.clone().cuda(), hx1.clone().cuda(), cx1.clone().cuda()
-    m2 = copy.deepcopy(m1).cuda()
-    x2.requires_grad_(True)
+    hy1, cy1, ws1 = torch._fused_lstm_cell(input1, hidden1, cx1)
+    (hy1 + cy1).sum().backward(retain_graph=True)
 
-    y1, hn1 = m1(x1, (hx1, cx1))
-    hy1, cy1 = hn1
-    y1.mean().backward(retain_graph=True)
+    input2.requires_grad_(True)
+    hidden2.requires_grad_(True)
+    cx2.requires_grad_(True)
 
-    y2, hn2 = m2(x2, (hx2, cx2))
-    hy2, cy2 = hn2
-    y2.mean().backward(retain_graph=True)
+    gates = input2 + hidden2
+    chunked_gates = gates.chunk(4, 1)
+    ig = chunked_gates[0].sigmoid_();
+    fg = chunked_gates[1].sigmoid_();
+    cg = chunked_gates[2].tanh_();
+    og = chunked_gates[3].sigmoid_();
+    cy2 = (fg * cx2).add_(ig * cg);
+    hy2 = og * cy2.tanh();
+    ws2 = torch.cat([ig, fg, cg, og], dim=1)
+    (hy2 + cy2).sum().backward(retain_graph=True)
 
-    def cmp(t1, t2, msg, debug=False):
-        t2 = t2.cpu() if t2.is_cuda else t2
-        print(msg, torch.allclose(t1, t2, rtol=1e-05, atol=1e-05))
-        if debug:
-            print(t1.view(-1)[0:20])
-            print(t2.view(-1)[0:20])
+    def cmp(t1, t2, msg):
+        print(msg, torch.allclose(t1, t2, rtol=1e-05, atol=1e-05),
+                "; t1.sum(): {:.3f}, t2.sum(): {:.3f}".format(t1.sum().item(), t2.sum().item()))
 
-    def cmp1(v1, v2, msg, debug):
-        cmp(v1.grad.data, v2.grad.data, msg, debug)
+    print("\n### fused_lstm_kernel ###")
+    cmp(hy1, hy2, "hy: ")
+    cmp(cy1, cy2, "cy: ")
+    cmp(ws1, ws2, "workspace: ")
+    cmp(input1.grad, input2.grad, "input_gates.grad: ")
+    cmp(hidden1.grad, hidden2.grad, "hidden_gates.grad: ")
+    cmp(cx1.grad, cx2.grad, "cx.grad: ")
 
-    debug = True
-    cmp(y1, y2, 'output: ', debug)
-    cmp(hy1, hy2, 'hy: ', debug)
-    cmp(cy1, cy2, 'cy: ', debug)
+# test fused_lstm_cell fwd and bwd
+def test2():
+    n = 4
+    h = 10
+    g = 3 * h
+    input = torch.randn(n, g)
+    hidden = torch.randn(n, g)
+    hx = torch.randn(n, h)
 
+    hy1, ws1 = torch._fused_gru_cell(input, hidden, hx)
 
-#validate()
+    chunked_igates = input.chunk(3, 1)
+    chunked_hgates = hidden.chunk(3, 1)
+    reset_gate = chunked_hgates[0].add_(chunked_igates[0]).sigmoid_();
+    input_gate = chunked_hgates[1].add_(chunked_igates[1]).sigmoid_();
+    new_gate = chunked_igates[2].add(chunked_hgates[2].mul_(reset_gate)).tanh_();
+    hy2 = (hx - new_gate).mul_(input_gate).add_(new_gate)
 
+    def cmp(t1, t2, msg):
+        print(msg, torch.allclose(t1, t2, rtol=1e-05, atol=1e-05),
+                "; t1.sum(): {:.3f}, t2.sum(): {:.3f}".format(t1.sum().item(), t2.sum().item()))
 
+    print("\n### fused_gru_kernel ###")
+    cmp(hy1, hy2, "hy: ")
+
+test1()
+test2()
