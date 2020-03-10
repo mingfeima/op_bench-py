@@ -27,8 +27,10 @@ if [ $# -ge 2 ]; then
 
   echo -e "\n### using $KMP_SETTING"
   echo -e "### using KMP_BLOCKTIME=$KMP_BLOCKTIME\n"
-  echo -e "\n### using OMP_NUM_THREADS=$TOTAL_CORES"
-  OMP_NUM_THREADS=$TOTAL_CORES $PREFIX python -u $INPUT_FILE --train
+  echo -e "\n### using OMP_NUM_THREADS=$CORES"
+  PREFIX="numactl --physcpubind=0-$LAST_CORE --membind=0"
+  echo -e "### using $PREFIX\n"
+  OMP_NUM_THREADS=$CORES $PREFIX python -u $INPUT_FILE --train
   exit
 fi
 
