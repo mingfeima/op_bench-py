@@ -12,7 +12,7 @@ iters = 10000 # iterations
 S = 2 # scale_factor
 
 tests = {
-    #'upsample_nearest1d' : [[64, 9, 512], 'nearest', 'ncw' int(iters * 2)],
+    #'upsample_nearest1d' : [[64, 9, 512], 'nearest', 'ncw', int(iters * 2)],
     #'upsample_nearest2d' : [[8, 9, 64, 64], 'nearest', 'nchw', iters],
     #'upsample_nearest3d' : [[8, 9, 32, 32, 32], 'nearest', 'ncdhw', int(iters / 10)],
     'upsample_nearest2d' : [[8, 64, 64, 9], 'nearest', 'nhwc', iters]
