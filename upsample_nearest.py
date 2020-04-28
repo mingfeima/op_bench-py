@@ -7,15 +7,15 @@ from time import time
 
 torch.manual_seed(0)
 warmups = 100 # iterations
-iters = 10000 # iterations
+iters = 1000 # iterations
 
 S = 2 # scale_factor
 
 tests = {
     #'upsample_nearest1d' : [[64, 9, 512], 'nearest', 'ncw', int(iters * 2)],
-    #'upsample_nearest2d' : [[8, 9, 64, 64], 'nearest', 'nchw', iters],
+    'upsample_nearest2d' : [[32, 128, 64, 64], 'nearest', 'nchw', iters],
     #'upsample_nearest3d' : [[8, 9, 32, 32, 32], 'nearest', 'ncdhw', int(iters / 10)],
-    'upsample_nearest2d' : [[8, 64, 64, 9], 'nearest', 'nhwc', iters]
+    'upsample_nearest2d_cl' : [[32, 64, 64, 128], 'nearest', 'nhwc', iters]
 }
 
 # nn.Upsample(input, scale_factor, mode)

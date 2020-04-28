@@ -6,16 +6,16 @@ from time import time
 
 
 torch.manual_seed(0)
-warmups = 100 # iterations
-iters = 1000 # iterations
+warmups = 10 # iterations
+iters = 500 # iterations
 
 S = 2 # scale_factor
 
 tests = {
-    'upsample_nearest1d' : [[64, 9, 512], 'linear', 'ncw', int(iters * 2)],
-    'upsample_nearest2d' : [[8, 9, 64, 64], 'bilinear', 'nchw', iters],
-    'upsample_nearest3d' : [[8, 9, 32, 32, 32], 'trilinear', 'ncdhw', int(iters / 10)],
-    #'upsample_nearest2d' : [[8, 64, 64, 9], 'bilinear', 'nhwc', iters]
+    #'upsample_linear' : [[64, 9, 512], 'linear', 'ncw', int(iters * 2)],
+    'upsample_bilinear' : [[32, 128, 64, 64], 'bilinear', 'nchw', iters],
+    #'upsample_trilinear' : [[8, 9, 32, 32, 32], 'trilinear', 'ncdhw', int(iters / 10)],
+    'upsample_bilinear_cl' : [[32, 64, 64, 128], 'bilinear', 'nhwc', iters]
 }
 
 # nn.Upsample(input, scale_factor, mode)
@@ -42,7 +42,7 @@ def run_single_test(name, input_size, scale, mode, memory_format, niters, train)
     t2 = time()
     ttime = t2 - t1
 
-    print("{}: memory format: {}, input size: ".format(name, memory_format), input.size())
+    print("{}: memory format: {}, input size: ".format(name, memory_format), input_size)
     print("input.is_contiguous(memory_format=torch.channels_last): ", input.is_contiguous(memory_format=torch.channels_last))
     print("input.is_contiguous(): ", input.is_contiguous())
     if train:
@@ -157,7 +157,37 @@ def test_trilinear3d():
     print("grad_input1: align_corners=False", input1.grad.view(-1), "\nref: ", ref3.view(-1))
     print("grad_input2: align_corners=True", input2.grad.view(-1), "\nref: ", ref4.view(-1))
 
+def test_bilinear_nhwc():
+    n, c, h, w = 30, 40, 50, 60
+    x = torch.randn(n, c, h, w)
+    input1 = x.permute(0, 3, 1, 2) # nhwc
+    input2 = input1.contiguous() # nchw
+
+    for align_corners in [True, False]:
+        m = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=align_corners)
+        output1 = m(input1)
+        output2 = m(input2)
+        diff = (output1 - output2).abs().max().item()
+        print("test_bilinear, align_corners: ", align_corners, "; allclose: ", output1.allclose(output2, rtol=1e-05, atol=1e-06), "; max diff: ", diff)
+
+def test_trilinear_ndhwc():
+    n, d, c, h, w = 30, 40, 50, 60, 7
+    x = torch.randn(n, c, d, h, w)
+    input1 = x.permute(0, 4, 1, 2, 3) # ndhwc
+    input2 = input1.contiguous() # ncdhw
+
+    for align_corners in [True, False]:
+        m = nn.Upsample(scale_factor=2, mode='trilinear', align_corners=align_corners)
+        output1 = m(input1)
+        output2 = m(input2)
+        diff = (output1 - output2).abs().max().item()
+        #print(output1.flatten()[0:100])
+        #print(output2.flatten()[0:100])
+        print("test_trilinear, align_corners: ", align_corners, "; allclose: ", output1.allclose(output2, rtol=1e-05, atol=1e-06), "; max diff: ", diff)
+
 
 #test_linear1d()
 #test_bilinear2d()
 #test_trilinear3d()
+#test_bilinear_nhwc()
+#test_trilinear_ndhwc()
