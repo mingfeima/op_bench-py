@@ -98,7 +98,7 @@ def test1():
     cx2.requires_grad_(True)
 
     gates = input2 + hidden2
-    chunked_gates = gates.chunk(4, 1)
+    chunked_gates = gates.unsafe_chunk(4, 1)
     ig = chunked_gates[0].sigmoid_();
     fg = chunked_gates[1].sigmoid_();
     cg = chunked_gates[2].tanh_();
@@ -143,8 +143,8 @@ def test2():
     hidden2.requires_grad_(True)
     hx2.requires_grad_(True)
 
-    chunked_igates = input2.chunk(3, 1)
-    chunked_hgates = hidden2.chunk(3, 1)
+    chunked_igates = input2.unsafe_chunk(3, 1)
+    chunked_hgates = hidden2.unsafe_chunk(3, 1)
     hn = chunked_hgates[2].clone()
     rg = chunked_hgates[0].add_(chunked_igates[0]).sigmoid_();
     ig = chunked_hgates[1].add_(chunked_igates[1]).sigmoid_();
