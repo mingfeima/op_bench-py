@@ -1,9 +1,12 @@
 ### run script for the operator benchmark
 
 #source activate pytorch-mingfei
-export MALLOC_CONF="oversize_threshold:1,background_thread:true,metadata_thp:auto,dirty_decay_ms:9000000000,muzzy_decay_ms:9000000000";
-export LD_PRELOAD=/home/mingfeim/packages/jemalloc-5.2.0/lib/libjemalloc.so
-
+# jemalloc:
+#   export MALLOC_CONF="oversize_threshold:1,background_thread:true,metadata_thp:auto,dirty_decay_ms:9000000000,muzzy_decay_ms:9000000000";
+#   export LD_PRELOAD=/home/mingfeim/packages/jemalloc-5.2.0/lib/libjemalloc.so
+#
+# tcmalloc:
+export LD_PRELOAD=/home/mingfeim/packages/gperftools-2.7/install/lib/libtcmalloc.so
 
 if [ $# -lt 1 ]; then
   echo "usage: ./run.sh [xxx.py] for inference"
