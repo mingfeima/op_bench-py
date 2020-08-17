@@ -6,7 +6,7 @@
 #   export LD_PRELOAD=/home/mingfeim/packages/jemalloc-5.2.0/lib/libjemalloc.so
 #
 # tcmalloc:
-export LD_PRELOAD=/home/mingfeim/packages/gperftools-2.7/install/lib/libtcmalloc.so
+export LD_PRELOAD=/home/mingfeim/packages/gperftools-2.8/install/lib/libtcmalloc.so
 
 if [ $# -lt 1 ]; then
   echo "usage: ./run.sh [xxx.py] for inference"

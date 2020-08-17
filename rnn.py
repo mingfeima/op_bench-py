@@ -165,5 +165,5 @@ def test2():
     cmp(hx1.grad, hx2.grad, "hx.grad: ")
 
 
-test1()
-test2()
+#test1()
+#test2()
