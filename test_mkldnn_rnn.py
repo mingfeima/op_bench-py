@@ -8,16 +8,22 @@ def cmp(t1, t2, debug=False):
         print(t2.size(), 'sum: {:.6f}'.format(t2.sum().item()))
     return torch.allclose(t1, t2, atol=5e-7)
 
-def test_lstm_inference(T, N, I, H, L, bidirectional=False, bias=False, batch_first=False):
+def test_lstm_inference(T, N, I, H, L, bidirectional=False, bias=False, batch_first=False, train=False):
     D = 2 if bidirectional else 1
     input = torch.randn(N, T, I) if batch_first else torch.randn(T, N, I)
     hx = torch.randn(L*D, N, H)
     cx = torch.randn(L*D, N, H)
 
     rnn = nn.LSTM(I, H, L, bidirectional=bidirectional, bias=bias, batch_first=batch_first)
-    rnn.eval()
+    if train:
+        rnn.train()
+    else:
+        rnn.eval()
     rnn2 = copy.deepcopy(rnn)
-    rnn2.eval()
+    if train:
+        rnn2.train()
+    else:
+        rnn2.eval()
 
     ### mkldnn rnn
     output, (hy, cy) = rnn(input, (hx, cx))
@@ -30,7 +36,7 @@ def test_lstm_inference(T, N, I, H, L, bidirectional=False, bias=False, batch_fi
     cmp_hy = cmp(hy, hy2)
     cmp_cy = cmp(cy, cy2)
     print("### lstm inference: bidirectional = ",
-          bidirectional, "; bias = ", bias, "; batch_first = ", batch_first,
+          bidirectional, "; bias = ", bias, "; batch_first = ", batch_first, "; train = ", train,
           "; output: ", cmp_output, "; hy: ", cmp_hy, "; cy: ", cmp_cy)
 
 
@@ -62,6 +68,9 @@ def test_onehidden_inference(T, N, I, H, L, mode, bidirectional=False, bias=Fals
           bidirectional, "; bias = ", bias, "; batch_first = ", batch_first,
           "; output: ", cmp_output, "; hy: ", cmp_hy)
 
+print('one time test')
+test_lstm_inference(2, 1, 512, 512, 2, False, True, False, True)
+exit()
 
 print("\n LSTM: ")
 for bidirectional in [True, False]:
