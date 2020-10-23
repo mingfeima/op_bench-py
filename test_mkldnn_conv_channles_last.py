@@ -19,7 +19,7 @@ def test_conv2d_cl(n, ic, h, w, oc, kernel_size, groups=1):
     # 1: nchw
     # 2: blocked
     # 3: nhwc
-    conv1 = nn.Conv2d(ic, oc, kernel_size)
+    conv1 = nn.Conv2d(ic, oc, kernel_size, groups=groups)
     conv2 = mkldnn_utils.to_mkldnn(conv1)
     conv3 = copy.deepcopy(conv1).to(memory_format=torch.channels_last)
 
@@ -28,7 +28,7 @@ def test_conv2d_cl(n, ic, h, w, oc, kernel_size, groups=1):
     input3 = input1.to(memory_format=torch.channels_last)
 
     input1.requires_grad_()
-    input2.requires_grad_()
+    #input2.requires_grad_()
     input3.requires_grad_()
 
     #print("NCHW")
@@ -48,12 +48,12 @@ def test_conv2d_cl(n, ic, h, w, oc, kernel_size, groups=1):
     grad_weight3 = conv3.weight.grad
     grad_bias1 = conv1.bias.grad
     grad_bias3 = conv3.bias.grad
-    #print("### output3.data_ptr(): ", output3.data_ptr())
-    #print("### grad_input3.data_ptr(): ", grad_input3.data_ptr())
-    #print("### grad_weight1.data_ptr(): ", grad_weight1.data_ptr())
-    #print("### grad_bias1.data_ptr(): ", grad_bias1.data_ptr())
-    #print("### grad_weight3.data_ptr(): ", grad_weight3.data_ptr())
-    #print("### grad_bias3.data_ptr(): ", grad_bias3.data_ptr())
+    #print("### output3.data_ptr(): ", hex(output3.data_ptr()))
+    #print("### grad_input3.data_ptr(): ", hex(grad_input3.data_ptr()))
+    #print("### grad_weight1.data_ptr(): ", hex(grad_weight1.data_ptr()))
+    #print("### grad_bias1.data_ptr(): ", hex(grad_bias1.data_ptr()))
+    #print("### grad_weight3.data_ptr(): ", hex(grad_weight3.data_ptr()))
+    #print("### grad_bias3.data_ptr(): ", hex(grad_bias3.data_ptr()))
 
     ### note: autograd has compatibility impl for channels last
     ### need to verify if the backward output is the original
@@ -73,7 +73,7 @@ def test_conv2d_cl_weight_prepacking(n, ic, h, w, oc, kernel_size, groups=1):
     # 2: nchw (weight prepacked)
     # 3: nhwc
     # 4: nhwc (weight prepacked)
-    conv1 = nn.Conv2d(ic, oc, kernel_size)
+    conv1 = nn.Conv2d(ic, oc, kernel_size, groups=groups)
     conv2 = mkldnn_utils.to_mkldnn(conv1)
     conv3 = copy.deepcopy(conv1).to(memory_format=torch.channels_last)
     conv4 = mkldnn_utils.to_mkldnn(conv3)
@@ -98,8 +98,8 @@ def test_conv2d_cl_weight_prepacking(n, ic, h, w, oc, kernel_size, groups=1):
 
 
 ### smoke tests:
-#test_conv2d_cl(128, 3, 32, 32, 10, 3)
-#test_conv2d_cl(128, 8, 32, 32, 10, 3, 2)
+test_conv2d_cl(128, 3, 32, 32, 10, 3)
+test_conv2d_cl(1, 10, 32, 32, 20, 3, 2)
 test_conv2d_cl_weight_prepacking(128, 16, 32, 32, 64, 3)
-
+test_conv2d_cl_weight_prepacking(128, 16, 32, 32, 64, 3, 2)
 
